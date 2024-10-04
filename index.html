@@ -49,12 +49,16 @@
 
   <script type="module">
     import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
-    import { VRButton } from 'https://cdn.rawgit.com/mrdoob/three.js/r128/examples/jsm/webxr/VRButton.js';
     import { GLTFLoader } from 'https://cdn.rawgit.com/mrdoob/three.js/r128/examples/jsm/loaders/GLTFLoader.js';
 
     let scene, camera, renderer, controller;
     let model, animationMixer, clock;
+    let animationState = 'initial'; // stato iniziale dell'animazione
     let isAnimating = false;
+
+    const fps = 24; // frame per secondo
+    const pauseAtFrame1 = 120;
+    const pauseAtFrame2 = 237;
 
     // Funzione per inizializzare la scena
     function init() {
@@ -67,7 +71,6 @@
       
       // Aggiungi il pulsante per AR
       document.getElementById('ar-button').addEventListener('click', () => {
-        renderer.xr.enabled = true;
         renderer.xr.getSession().requestReferenceSpace('local').then(refSpace => {
           renderer.xr.setReferenceSpace(refSpace);
           renderer.xr.start();
@@ -97,20 +100,45 @@
 
     // Renderizza la scena
     function render() {
-      const delta = clock.getDelta();
-      if (animationMixer) animationMixer.update(delta);
+      if (animationMixer) {
+        const delta = clock.getDelta();
+        animationMixer.update(delta);
+      }
 
       renderer.render(scene, camera);
     }
 
-    // Gestione del click del pulsante "Esplodi 3D-C2"
-    document.getElementById('animate-button').addEventListener('click', () => {
-      if (!isAnimating) {
-        isAnimating = true;
-        // Logica per animare il modello
-        // ... (aggiungi la tua logica di animazione qui)
+    // Funzione per gestire l'animazione
+    const handleAnimation = () => {
+      if (isAnimating) return;
+
+      isAnimating = true;
+
+      if (animationState === 'initial') {
+        // Avvio animazione fino al frame 120
+        model.position.set(0, 0, 0); // Imposta la posizione del modello se necessario
+        animationMixer.clipAction(model.animations[0]).play();
+        setTimeout(() => {
+          animationMixer.clipAction(model.animations[0]).stop(); // Ferma l'animazione
+          animationState = 'pausedAt120'; // Cambia stato
+          isAnimating = false; // Permetti altri clic
+        }, (pauseAtFrame1 / fps) * 1000);
+      } else if (animationState === 'pausedAt120') {
+        // Riprendi fino al frame 237
+        setTimeout(() => {
+          animationMixer.clipAction(model.animations[0]).stop(); // Ferma l'animazione
+          animationState = 'pausedAt237'; // Cambia stato
+          isAnimating = false; // Permetti altri clic
+        }, ((pauseAtFrame2 - pauseAtFrame1) / fps) * 1000);
+      } else if (animationState === 'pausedAt237') {
+        // Riparti dall'inizio
+        animationState = 'initial';
+        isAnimating = false; // Permetti altri clic
       }
-    });
+    };
+
+    // Gestione del click del pulsante "Esplodi 3D-C2"
+    document.getElementById('animate-button').addEventListener('click', handleAnimation);
 
     init();
   </script>
